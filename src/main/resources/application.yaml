@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql://o-kr-amd2.017711.xyz:3306/exercise-yym?useUnicode=true&characterEncoding=utf8&allowMultiQueries=true
+    username: yym
+    password: "7s2JchCpQCnWGn6N"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+
+  # ?????QQ?????
+  mail:
+    host: smtp.qq.com
+    username: 196254331@qq.com
+    password: bpdtjyehgbbfbjaj  # QQ?????????????
+    port: 587
+    default-encoding: UTF-8
+    protocol: smtp # SMTP邮件协议
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+
+
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+
+# MyBatis-Plus??
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.example.email.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
