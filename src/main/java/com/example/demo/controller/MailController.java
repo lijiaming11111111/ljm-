@@ -7,6 +7,8 @@ import com.example.demo.entiy.Mail;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;
 import com.example.demo.service.MailService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -20,22 +22,45 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 @Validated
+@Tag(name = "邮件管理")
 public class MailController {
 
     private final MailService mailService;
 
+
+    /**
+     * 发送邮件
+     *
+     * @param  dto
+     * @return
+     */
     @PostMapping("/sendTextMail")
+    @Operation(description = "发送邮件")
     public Result sendTextMail(@RequestBody MailSendDTO dto){
         return mailService.sendTextMailMessage(dto);
     }
 
+    /**
+     * 分页查询邮件历史记录
+     *
+     * @param  dto
+     * @return
+     */
     @PostMapping("/pageMailMessage")
+    @Operation(description = "分页查询邮件历史记录")
     public Result<PageResult<Mail>> pageMailMessage(@RequestBody PageMailDTO dto){
         PageResult<Mail>pageResult=mailService.pageMailMessage(dto);
         return Result.success("查询成功",pageResult);
     }
 
+    /**
+     * 批量删除邮件历史记录
+     *
+     * @param  dto
+     * @return
+     */
     @PostMapping("/deleteMail")
+    @Operation(description = "批量删除邮件历史记录")
     public Result deleteMail(@RequestBody DeleteMailDTO dto){
         return mailService.deleteMail(dto.getIdlist());
     }
