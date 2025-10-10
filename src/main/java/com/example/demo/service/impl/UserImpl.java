@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.demo.bo.UserLoginVerifyData;
+import com.example.demo.context.BaseContext;
 import com.example.demo.dto.user.*;
 import com.example.demo.entiy.User;
 import com.example.demo.enumerate.StatusEnum;
@@ -67,6 +68,7 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
      */
     @Override
     public String addUser(AddUserDTO addUserDTO) {
+        System.out.println(BaseContext.getCurrentUserId());
         //创建用户
         User user = new User();
         BeanUtils.copyProperties(addUserDTO,user);
@@ -342,7 +344,7 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
      *
      *
      */
-    @Scheduled(cron = "*/10 * * * * *")
+    @Scheduled(cron = "*/50 * * * * *")
     public void timekeeping(){
         if (new Date().after(endTime)){
             mail=null;
