@@ -23,6 +23,22 @@ spring:
             enable: true
             required: true
 
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+jwt:
+  secretKey: "hVg1LcycfyZCJd0YPVujGKE1KtL7ntmHEHmXFAE10jcwPRopYiVAxQcaUxB4ZKFgDUCgBxY8ujMU4ZuNuhciAjPUmWG199ztEXwy"
+  expiration: 12 #过期时间 小时
+
+user:  #用户
+  salt: #盐
+    length: 16 #长度
+
 
 
 
@@ -35,7 +51,7 @@ knife4j:
 # MyBatis-Plus??
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
-  type-aliases-package: com.example.email.model
+  type-aliases-package: com.example.demo.entity
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

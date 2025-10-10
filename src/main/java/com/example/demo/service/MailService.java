@@ -1,8 +1,8 @@
 package com.example.demo.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.example.demo.dto.MailSendDTO;
-import com.example.demo.dto.PageMailDTO;
+import com.example.demo.dto.mail.MailSendDTO;
+import com.example.demo.dto.mail.PageMailDTO;
 import com.example.demo.entiy.Mail;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;

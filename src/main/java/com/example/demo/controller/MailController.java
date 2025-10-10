@@ -1,8 +1,8 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.DeleteMailDTO;
-import com.example.demo.dto.MailSendDTO;
-import com.example.demo.dto.PageMailDTO;
+import com.example.demo.dto.mail.DeleteMailDTO;
+import com.example.demo.dto.mail.MailSendDTO;
+import com.example.demo.dto.mail.PageMailDTO;
 import com.example.demo.entiy.Mail;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;
@@ -13,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/email")
@@ -35,7 +33,7 @@ public class MailController {
      * @return
      */
     @PostMapping("/sendTextMail")
-    @Operation(description = "发送邮件")
+    @Operation(summary = "发送邮件")
     public Result sendTextMail(@RequestBody MailSendDTO dto){
         return mailService.sendTextMailMessage(dto);
     }
@@ -47,7 +45,7 @@ public class MailController {
      * @return
      */
     @PostMapping("/pageMailMessage")
-    @Operation(description = "分页查询邮件历史记录")
+    @Operation(summary = "分页查询邮件历史记录")
     public Result<PageResult<Mail>> pageMailMessage(@RequestBody PageMailDTO dto){
         PageResult<Mail>pageResult=mailService.pageMailMessage(dto);
         return Result.success("查询成功",pageResult);
@@ -60,7 +58,7 @@ public class MailController {
      * @return
      */
     @PostMapping("/deleteMail")
-    @Operation(description = "批量删除邮件历史记录")
+    @Operation(summary = "批量删除邮件历史记录")
     public Result deleteMail(@RequestBody DeleteMailDTO dto){
         return mailService.deleteMail(dto.getIdlist());
     }
