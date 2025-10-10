@@ -65,12 +65,11 @@ public class TeamImpl implements TeamService {
     public String insertTeamMail(AddTeamMailDTO addTeamMailDTO) {
         User user=userMapper.selectById(BaseContext.getCurrentUserId());
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        // 使用 in 方法，查询团队ID
         List<UserTeam> userTeams=userTeamMapper.selectList(new QueryWrapper<UserTeam>().in("team_id", addTeamMailDTO.getId()));
-        // 根据团队ID(team_id)，提取 用户ID(user_id) 并返回
+        // 根据团队ID，提取 用户ID 并返回
         List<Long> userId=userTeams.stream().map(UserTeam::getUserId).collect(Collectors.toList());
         List<User> userList = userMapper.selectList(queryWrapper.in("id", userId));
-        // 根据用户ID(user_id),提取 用户ID所对应的邮箱(email)
+        // 根据用户ID,提取 用户ID所对应的邮箱
         List<String> emails= userList.stream().map(User::getMail).collect(Collectors.toList());
 
         //批量发送邮件
