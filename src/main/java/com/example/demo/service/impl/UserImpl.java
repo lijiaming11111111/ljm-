@@ -366,7 +366,7 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
      *
      *
      */
-    @Scheduled(cron = "*/50 * * * * *")
+    @Scheduled(cron = "*/10 * * * * *")
     public void timekeeping(){
         if (new Date().after(endTime)){
             mail=null;
