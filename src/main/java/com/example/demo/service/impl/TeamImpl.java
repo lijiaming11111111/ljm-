@@ -85,8 +85,8 @@ public class TeamImpl implements TeamService {
             try {
                 //发送邮件成功，生成对应的数据库内容
                 SimpleMailMessage message = new SimpleMailMessage();
-                message.setFrom(user.getMail());                  // 发件人（需与配置中的 username 一致）
-                message.setTo(email);                                 // 收件人
+                message.setFrom(user.getMail());
+                message.setTo(email);
                 message.setText(addTeamMailDTO.getContent());
                 mailSender.send(message);
                 //修改状态
