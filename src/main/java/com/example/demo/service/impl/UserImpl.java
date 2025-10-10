@@ -51,11 +51,11 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
 
     //存储邮箱验证码
     private String verificationCode;
-    //存储邮箱
+    // 保存收件人邮箱
     private String mail;
-    //存储邮箱验证码发送时间
+    // 记录验证码发送时间（用于计算有效期）
     private Date startTime;
-    //存储验证有效期时间
+    // 保存验证码过期时间
     private Date endTime;
     //存储验证码是否验证成功
     private Boolean ll=false;
@@ -126,17 +126,21 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         if (user==null){
             throw new BaseException("用户不存在");
         }
+        // 创建用户登录验证数据对象，用于处理登录验证相关信息
         UserLoginVerifyData data=new UserLoginVerifyData();
         BeanUtils.copyProperties(user,data);
+        // 构建待加密的密码字符串：用户输入的密码 + 数据库中存储的盐值
         String password=dto.getPassword()+data.getSalt();
+        // 对密码进行MD5加密处理
         password=DigestUtils.md5DigestAsHex(password.getBytes());
-
+        // 验证加密后的密码与数据库中存储的密码是否一致
         if (!password.equals(user.getPassword())) {
             //密码错误
             throw new BaseException("密码错误");
         }
-
+        // 创建JWT声明（claims）对象，用于存储自定义负载信息
         Map<String, Object> claims = new HashMap<>();
+        // 将用户ID存入声明中，用于生成令牌
         claims.put("id", data.getId());
         //生成token
         String token = JwtUtil.createJWT(
@@ -153,25 +157,43 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
     @Override
     public Result sendVerificationCode(SendVerificationCodeDTO dto) {
         SimpleMailMessage message = new SimpleMailMessage();
+        // 创建随机数生成器，用于生成验证码
         Random random = new Random();
+        // 字符串构建器，用于拼接生成的验证码数字
         StringBuilder code = new StringBuilder();
+        // 循环6次，生成6位数字的验证码
         for (int i = 0; i < 6; i++) {
+            // 生成0-9之间的随机整数
             int r = random.nextInt(10);
+            // 将随机数拼接到验证码字符串中
             code.append(r);
         }
+        // 将生成的验证码转换为字符串并保存
         verificationCode= String.valueOf(code);
+        // 构建邮件内容，包含验证码信息和提示
         String text = "您的验证码为：" + code + ",请勿泄露给他人。";
+        // 设置邮件发送者（发件人邮箱
         message.setFrom(sendMailer);
+        // 设置邮件接收者
         message.setTo(dto.getMail());
+        // 设置邮件正文内容
         message.setText(text);
+        // 设置邮件发送时间为当前时间
         message.setSentDate(new Date());
+        // 设置邮件主题
         message.setSubject("登录验证码");
+        // 保存收件人邮箱
         mail=dto.getMail();
 
+        // 记录验证码发送时间（用于计算有效期）
         startTime=message.getSentDate();
+        // 获取日历实例，用于计算验证码过期时间
         Calendar cal = Calendar.getInstance();
+        // 设置日历时间为验证码发送时间
         cal.setTime(startTime);
+        // 在发送时间基础上增加5分钟，作为验证码有效期
         cal.add(Calendar.MINUTE,5);
+        // 保存验证码过期时间
         endTime=cal.getTime();
         //判断是否发送失败
         try {
