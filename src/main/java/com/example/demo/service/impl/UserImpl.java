@@ -12,6 +12,7 @@ import com.example.demo.enumerate.StatusEnum;
 import com.example.demo.exception.BaseException;
 import com.example.demo.mapper.FileMapper;
 import com.example.demo.mapper.UserMapper;
+import com.example.demo.redis.RedisCode;
 import com.example.demo.redis.RedisPrefix;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;
@@ -21,6 +22,7 @@ import com.example.demo.util.FileUtil;
 import com.example.demo.util.JwtUtil;
 import com.example.demo.util.SaltUtil;
 import com.example.demo.vo.file.FileDataVO;
+import com.example.demo.vo.file.FileUrlVO;
 import com.example.demo.vo.user.PageUserVO;
 import com.example.demo.vo.user.UserLoginVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -73,11 +75,11 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
     /**
      * 新增用户
      *
-     * @param  addUserDTO
+     * @param addUserDTO
      * @return
      */
     @Override
-    public String addUser(AddUserDTO addUserDTO, MultipartFile face) throws IOException {
+    public String addUser(AddUserDTO addUserDTO,MultipartFile face) throws IOException {
 
         //创建用户
         User user = new User();
@@ -98,10 +100,12 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         if (mobileCount!=0){
             throw new BaseException("手机号已存在");
         }
-
-        String objectName=fileUtil.uploadFile(face);
-        user.setFace(fileMapper.selectFileId(objectName));
-
+        //调用获取上传文件预签名接口，获取上传预签名地址，和文件唯一ID
+        FileUrlVO vo=fileUtil.url(face);
+        //通过预签名上传文件
+        fileUtil.uploadFileUrl(String.valueOf(vo.getUrl()),face);
+        //用户的头像字段使用第一步获取的文件ID
+        user.setFace(vo.getId());
         //生成盐值和加密密码
         String salt= SaltUtil.generateSalt(16);
         user.setSalt(salt);
@@ -198,7 +202,7 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         mail=dto.getMail();
         try {
             javaMailSender.send(message);
-            redisTemplate.opsForValue().set("code:" + mail, String.valueOf(code), Duration.ofMinutes(5));
+            redisTemplate.opsForValue().set(RedisCode.CODE.getPrefix()+ mail, String.valueOf(code), Duration.ofMinutes(5));
             return Result.success("发送成功",null);
 
         }catch (Exception e){

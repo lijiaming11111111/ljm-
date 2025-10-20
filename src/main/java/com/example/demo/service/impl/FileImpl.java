@@ -2,11 +2,13 @@ package com.example.demo.service.impl;
 
 import com.example.demo.service.FileService;
 import com.example.demo.util.FileUtil;
+import com.example.demo.vo.file.FileUrlVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URL;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +27,7 @@ public class FileImpl implements FileService {
 
     // 实现 FileService 接口的生成文件访问 URL 方法
     @Override
-    public String url(MultipartFile file) {
+    public FileUrlVO url(MultipartFile file) {
         // 调用 FileUtil 的 url 方法，生成文件可访问的 URL（如预签名上传 URL）
         return fileUtil.url(file);
     }
@@ -42,5 +44,10 @@ public class FileImpl implements FileService {
     public String deleteFile(String file)throws IOException{
         // 调用 FileUtil 的删除方法，执行文件删除操作（对象存储 + 数据库记录）
         return fileUtil.deleteFile(file);
+    }
+
+    @Override
+    public String uploadFileUrl(String url, MultipartFile file) throws IOException {
+        return fileUtil.uploadFileUrl(url,file);
     }
 }

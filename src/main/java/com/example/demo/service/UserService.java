@@ -17,10 +17,10 @@ public interface UserService extends IService<User> {
     /**
      * 新增用户
      *
-     * @param  addUserDTO
+     * @param addUserDTO
      * @return
      */
-    String addUser(AddUserDTO addUserDTO, MultipartFile face) throws IOException;
+    String addUser(AddUserDTO addUserDTO,MultipartFile face) throws IOException;
 
     /**
      * 批量删除用户

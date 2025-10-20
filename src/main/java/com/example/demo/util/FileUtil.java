@@ -6,11 +6,12 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.example.demo.entiy.File;
 import com.example.demo.exception.BaseException;
 import com.example.demo.mapper.FileMapper;
+import com.example.demo.vo.file.FileUrlVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -22,6 +23,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -30,20 +33,22 @@ import java.util.UUID;
 
 @Component
 public class FileUtil {
-    // S3 客户端对象，用于操作对象存储服务（如上传、下载、删除文件等），final 保证初始化后不可变
+    // S3 客户端对象，用于操作对象存储服务
     private final S3Client s3Client;
-    // S3 预签名器，用于生成带签名的临时 URL（如文件上传、下载的预签名地址），由 Spring 自动注入
+    // S3 预签名器，用于生成带签名的临时 URL
     @Autowired
     private S3Presigner s3Presigner;
-    // 对象存储桶名称，后续操作（上传、下载等）会用到该桶
+    // 对象存储桶名称
     private String bucketName;
-    // 文件Mapper，用于操作数据库中文件相关的表（如插入、查询、删除文件元数据）
     private  FileMapper fileMapper;
 
-    public FileUtil(S3Client s3Client, @Value("${tebi.bucket-name}") String bucketName, FileMapper fileMapper) {
+    private final RestTemplate restTemplate;
+
+    public FileUtil(S3Client s3Client, @Value("${tebi.bucket-name}") String bucketName, FileMapper fileMapper, RestTemplate restTemplate) {
         this.s3Client = s3Client;
         this.bucketName = bucketName;
         this.fileMapper = fileMapper;
+        this.restTemplate = restTemplate;
     }
 
     /**
@@ -65,17 +70,22 @@ public class FileUtil {
         // 执行文件上传：通过 S3 客户端，将文件流写入 S3 存储桶
         // RequestBody.fromInputStream 把 MultipartFile 的输入流、文件大小封装成请求体
         s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-        // 数据库记录：将文件元信息存入数据库，用于业务层管理（如查询、关联业务数据等）
-        File sqlFile=new File(); // 假设 File 是数据库实体类，对应文件信息表
-        sqlFile.setId(IdWorker.getId());// 用分布式 ID 生成器（IdWorker）生成唯一主键
-        sqlFile.setFileName(file.getOriginalFilename());// 记录用户上传的原始文件名
-        sqlFile.setObjectName(fileName);// 记录文件在 S3 中的唯一标识（key）
-        sqlFile.setBucketName(bucketName);// 记录文件所在的存储桶名称
-        sqlFile.setUploadTime(LocalDateTime.now());// 记录文件上传时间（当前时间）
+        File sqlFile=new File();
+        sqlFile.setId(IdWorker.getId());
+        sqlFile.setFileName(file.getOriginalFilename());
+        sqlFile.setObjectName(fileName);
+        sqlFile.setBucketName(bucketName);
+        sqlFile.setUploadTime(LocalDateTime.now());
         fileMapper.insert(sqlFile);
-        return fileName;  // 返回文件在 S3 中的 key
+        return fileName;
     }
 
+    /**
+     * 生成文件下载的URL
+     *
+     * @param fileName 要下载的文件名
+     * @return 下载URL
+     */
     public String generateDownloadUrl(String fileName) {
         try {
             // 1. 检查文件是否存在（HEAD 请求，轻量高效）
@@ -93,7 +103,7 @@ public class FileUtil {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName) // 指定存储桶
                     .key(fileName)// 指定要下载的文件对象键
-                    // 设置响应头，和上面的 map 作用一致（部分 S3 客户端可能两种方式都支持，按需选择）
+                    // 设置响应头，和上面的 map 作用一致
                     .responseContentDisposition("attachment; filename=\"" + fileName + "\"")
                     .build();
 
@@ -114,83 +124,123 @@ public class FileUtil {
     }
 
 
-    // 方法：生成文件上传的预签名 URL 并将文件信息存入数据库
-    public String url(MultipartFile file)  {
+    /**
+     * 生成文件可用于PUT上传的预签名URL
+     *
+     * @param file 相关文件
+     * @return 预签名URL
+     */
+    public FileUrlVO url(MultipartFile file)  {
         try {
-            // 1. 解析文件原始名称和后缀
-            // 获取用户上传文件的原始文件名（如 "example.jpg"）
+            //获取原始文件名
             String originalName = file.getOriginalFilename();
-            // 截取文件后缀（通过判断是否包含"."，从最后一个"."位置截取；若没有"."则后缀为空字符串）
+            //获取文件扩展名
             String fileExt = originalName.contains(".")
                     ? originalName.substring(originalName.lastIndexOf("."))
                     : "";
-            // 2. 生成唯一文件名（UUID + 后缀）
-            // 用 UUID 保证文件名唯一性，避免重复，再拼接之前截取的后缀
+            //文件唯一ID
             String uniqueFileName =  UUID.randomUUID() + fileExt;
 
-            // 3. 构建对象存储的上传请求（以 S3 为例）
-            // 创建 PutObjectRequest 对象，设置存储桶名称、对象键（唯一文件名）、文件内容类型
+            //指定存储桶
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(uniqueFileName)
                     .contentType(file.getContentType())
                     .build();
-
-            // 4. 生成预签名上传 URL（带过期时间）
-            // 通过 s3Presigner 生成预签名请求，设置关联的上传请求和签名有效期（30 分钟）
+            //生成url
             PresignedPutObjectRequest presignedPutObjectRequest = s3Presigner.presignPutObject(
                     (builder) -> builder.putObjectRequest(putObjectRequest)
                             .signatureDuration(Duration.ofMinutes(30))
             );
-            // 获取最终可用于上传的预签名 URL 对象
-            URL presignedUrl = presignedPutObjectRequest.url();
 
-            // 5. 写入数据库：记录文件元信息
-            // 新建 File 实体类对象，用于封装要存入数据库的文件信息
+            URL presignedUrl = presignedPutObjectRequest.url();
+            //数据库
             File sqlFile=new File();
-            // 设置文件 ID（假设 IdWorker 是生成唯一 ID 的工具类，需提前定义）
             sqlFile.setId(IdWorker.getId());
-            // 存储原始文件名（用户上传时的名称）
             sqlFile.setFileName(originalName);
-            // 存储对象存储中使用的唯一文件名
             sqlFile.setObjectName(uniqueFileName);
-            // 存储文件所在的存储桶名称
             sqlFile.setBucketName(bucketName);
-            // 设置文件上传时间为当前时间
             sqlFile.setUploadTime(LocalDateTime.now());
             fileMapper.insert(sqlFile);
-            // 6. 返回预签名 URL 的字符串形式
-            return String.valueOf(presignedUrl);
-
+            fileMapper.selectById(sqlFile.getId());
+            FileUrlVO fileUrlVO = new FileUrlVO();
+            fileUrlVO.setUrl(presignedUrl);
+            fileUrlVO.setId(sqlFile.getId());
+            return fileUrlVO;
         } catch (Exception e) {
-            // 异常处理：若上述流程出错，构建错误响应
-            // 新建 HashMap 用于封装错误信息
             Map<String, Object> error = new HashMap<>();
-            // 标记操作失败
             error.put("success", false);
-            // 存入错误提示，说明是生成 URL 失败及具体异常信息
             error.put("message", "生成URL失败：" + e.getMessage());
-            // 返回错误响应的字符串形式（这里直接转字符串，实际可能需要更规范的响应处理）
-            return String.valueOf(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error));
+            return null;
         }
     }
 
+    /**
+     * 删除文件
+     *
+     * @param file 要删除的文件标识
+     * @return 删除结果相关信息
+     * @throws IOException 处理文件删除时可能抛出的IO异常
+     */
     public String deleteFile(String file) throws IOException {
         try {
-            // 1. 构建对象存储的删除请求（指定桶名和文件唯一标识）
+            // 1. 构建对象存储的删除请求
             DeleteObjectRequest deleteObjectRequest= DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(file)
                     .build();
             // 2. 调用S3客户端删除对象存储中的文件
             s3Client.deleteObject(deleteObjectRequest);
-            // 3. 构建数据库删除条件（通过fileId匹配要删除的记录）
+            // 3. 构建数据库删除条件
             QueryWrapper<File> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("object_name", file); // 字段名需与数据库一致
             fileMapper.delete(queryWrapper);
             return "删除成功";
         }catch (S3Exception e) {
             throw new BaseException("删除失败");
+        }
+    }
+
+    /**
+     * 通过预签名 URL 上传文件
+     * @param url 已生成的预签名 URL
+     * @param file 要上传的文件
+     * @return 上传结果（成功/失败信息）
+     */
+    public String uploadFileUrl(String url, MultipartFile file) {
+        try {
+
+            // 1. 检查文件是否为空
+            if (file.isEmpty()) {
+                return "上传失败：文件为空";
+            }
+            String decodedUrl = URLDecoder.decode(url, StandardCharsets.UTF_8.name());
+            // 2. 设置请求头（根据 S3 协议，需指定文件 Content-Type）
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(file.getContentType()));
+            headers.setContentLength(file.getSize());
+
+            // 3. 构建请求体（文件字节流）
+            HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
+
+            // 4. 发送 PUT 请求到预签名 URL
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    decodedUrl,
+                    HttpMethod.PUT,
+                    requestEntity,
+                    Void.class
+            );
+            // 5. 检查响应状态（200/204 表示成功）
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return "文件上传成功";
+            } else {
+                return "文件上传失败，状态码：" + response.getStatusCodeValue();
+            }
+
+        } catch (IOException e) {
+            return "文件读取失败：" + e.getMessage();
+        } catch (Exception e) {
+            return "上传请求失败：" + e.getMessage();
         }
     }
 }

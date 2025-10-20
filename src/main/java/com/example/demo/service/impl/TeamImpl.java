@@ -48,6 +48,12 @@ public class TeamImpl implements TeamService {
 
     private final UserTeamMapper userTeamMapper;
 
+    /**
+     * 新增团队
+     *
+     * @param insertTeamDTO 包含新增团队信息的数据传输对象
+     * @return 新增团队操作结果提示
+     */
     @Override
     public String insertTeam(InsertTeamDTO insertTeamDTO) {
         //创建对象
@@ -61,6 +67,12 @@ public class TeamImpl implements TeamService {
         return "新增成功";
     }
 
+    /**
+     * 新增团队邮件
+     *
+     * @param addTeamMailDTO 包含新增团队邮件信息的数据传输对象
+     * @return 新增团队邮件操作结果提示
+     */
     @Override
     public String insertTeamMail(AddTeamMailDTO addTeamMailDTO) {
         User user=userMapper.selectById(BaseContext.getCurrentUserId());
@@ -102,6 +114,12 @@ public class TeamImpl implements TeamService {
         return "批量新增成功";
     }
 
+    /**
+     * 分页查询团队
+     *
+     * @param pageSelectTeamDTO 包含分页查询团队条件的数据传输对象
+     * @return 分页查询到的团队结果
+     */
     @Override
     public PageResult<Team> pageSelectTeam(PageSelectTeamDTO pageSelectTeamDTO) {
         //创建分页对象，指定页码和每页大小
@@ -124,6 +142,12 @@ public class TeamImpl implements TeamService {
         return new PageResult<>(result.getTotal(),result.getRecords());
     }
 
+    /**
+     * 批量删除团队
+     *
+     * @param ids 要删除的团队标识列表
+     * @return 批量删除团队操作结果
+     */
     @Override
     public Result deleteTeam(List<Long> ids) {
         List<Team> team=teamMapper.selectBatchIds(ids);
