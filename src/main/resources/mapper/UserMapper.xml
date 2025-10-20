@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.UserMapper">
+    <resultMap id="UserLoginVerifyDataResultMap" type="com.example.demo.bo.UserLoginVerifyData">
+        <result property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="password" column="password"/>
+        <result property="salt" column="salt"/>
+        <!-- 处理多对一或一对多关系：roleIds -->
+        <collection property="roleIds" ofType="java.lang.Long">
+            <result column="role_id" jdbcType="BIGINT"/>
+        </collection>
+    </resultMap>
+    <select id="getUserLoginDataByAccount" resultMap="UserLoginVerifyDataResultMap">
+        SELECT
+            u.id,
+            u.user_name,
+            u.password,
+            u.salt,
+            ur.role_id
+        FROM user u
+                 LEFT JOIN user_role ur ON u.id = ur.user_id
+        WHERE u.mail = #{mail}
+    </select>
+
+
+    <update id="forgetPassword">
+        update user
+        <set>
+            <if test="password != null">password=#{password},</if>
+        </set>
+        <where>
+            <if test="mobile!=null">
+                mobile = #{mobile}
+            </if>
+            <if test="mail!=null">
+                mail = #{mail}
+            </if>
+        </where>
+    </update>
+
+
+<!--    <resultMap id="userResultMap" type="com.example.demo.vo.user.PageUserVO">-->
+<!--        <result property="id" column="id"/>-->
+<!--        <result property="userName" column="user_name"/>-->
+<!--        <result property="password" column="password"/>-->
+<!--        <result property="salt" column="salt" />-->
+<!--        <result property="mobile" column="mobile"/>-->
+<!--        <result property="statusEnum" column="status_enum"/>-->
+<!--        <result property="mail" column="mail"/>-->
+<!--        <result property="address" column="address"/>-->
+<!--        <result property="sexEnum" column="sex_enum"/>-->
+<!--        <result property="birthday" column="birthday"/>-->
+<!--        <association property="face" javaType="com.example.demo.vo.file.FileDataVO">-->
+<!--            <id property="id" column="face" />-->
+<!--            <result property="name" column="file_name" />-->
+<!--        </association>-->
+<!--    </resultMap>-->
+    <select id="pageUser" resultType="com.example.demo.vo.user.PageUserVO">
+        select * from user
+        <where>
+            <if test="userName!=null">
+                user_name=#{userName},
+            </if>
+            <if test="mail!=null">
+                mail=#{mail},
+            </if>
+            <if test="mobile!=null">
+                mobile=#{mobile},
+            </if>
+            <if test="address!=null">
+                address=#{address},
+            </if>
+            <if test="sexEnum!=null">
+                sex_enum=#{sexEnum},
+            </if>
+            <if test="statusEnum!=null">
+                status_enum=#{statusEnum}
+            </if>
+        </where>
+    </select>
+</mapper>

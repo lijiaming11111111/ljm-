@@ -23,6 +23,13 @@ spring:
             enable: true
             required: true
 
+  data:
+    redis:
+      host: o-kr-amd2.017711.xyz
+      port: 16379
+      database: 3
+      password: "HhFi23U6gsI4hjTeosKC2x31sOPMIe6i"
+
 server:
   port: 8080
   servlet:
@@ -40,12 +47,22 @@ user:  #用户
     length: 16 #长度
 
 
-
-
 knife4j:
   enable: true
   setting:
     language: zh_cn
+
+
+tebi:
+  endpoint: http://s3.tebi.io  # TEBI 提供的 S3 兼容端点
+  access-key: Gn9E8D9S6revGzrk         # 访问密钥
+  secret-key: bT0dPfVjdSoOkZLN0O5CWXiLn0U5yn4oVxxNouYp         # 密钥
+  bucket-name: yym        # 桶名称
+  region: sgb
+
+
+
+
 
 
 # MyBatis-Plus??

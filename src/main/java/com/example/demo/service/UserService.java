@@ -5,9 +5,12 @@ import com.example.demo.dto.user.*;
 import com.example.demo.entiy.User;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;
-import com.example.demo.vo.UserLoginVO;
+import com.example.demo.vo.user.PageUserVO;
+import com.example.demo.vo.user.UserLoginVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 public interface UserService extends IService<User> {
@@ -17,7 +20,7 @@ public interface UserService extends IService<User> {
      * @param  addUserDTO
      * @return
      */
-    String addUser(AddUserDTO addUserDTO);
+    String addUser(AddUserDTO addUserDTO, MultipartFile face) throws IOException;
 
     /**
      * 批量删除用户
@@ -44,20 +47,11 @@ public interface UserService extends IService<User> {
     Result sendVerificationCode(SendVerificationCodeDTO dto);
 
     /**
-     * 验证码验证
-     *
-     * @param  dto
-     * @return
-     */
-    Result  verificationCodeValidation(VerificationCodeValidationDTO dto);
-
-    /**
      * 忘记密码
      *
-     * @param  dto
-     * @return
+     * @param dto
      */
-    Result  forgetPassword(ForgetPasswordDTO dto);
+    void   forgetPassword(ForgetPasswordDTO dto);
 
     /**
      * 修改密码
@@ -70,16 +64,17 @@ public interface UserService extends IService<User> {
     /**
      * 分页查询邮件历史记录
      *
-     * @param  dto
+     * @param dto
      * @return
      */
-    PageResult<User>pageUser(PageUserDTO dto);
+    PageResult<PageUserVO>pageUser(PageUserDTO dto);
 
     /**
      * 修改用户
      *
-     * @param  dto
+     * @param dto
+     * @param face
      * @return
      */
-    Result updateUser(UpdateUserDTO dto);
+    Result updateUser(UpdateUserDTO dto,MultipartFile face) throws IOException;
 }

@@ -34,11 +34,9 @@ public class AddUserDTO {
     private String address;
 
     @Schema(description = "性别枚举对象WOMAN女，MAN男")
-    @NotBlank(message = "性别不能为空")
     private SexEnum sexEnum;
 
     @Schema(description = "出生年月")
-    @NotBlank(message = "出生年月不能为空")
     private Date birthday;
 
 

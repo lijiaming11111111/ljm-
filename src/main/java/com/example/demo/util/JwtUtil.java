@@ -10,11 +10,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Map;
 
-/**
- * @author Refjttria
- *
- * JWT令牌工具
- */
+
 public class JwtUtil {
     /**
      * 生成jwt

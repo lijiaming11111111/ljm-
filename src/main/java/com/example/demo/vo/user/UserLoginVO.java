@@ -1,4 +1,4 @@
-package com.example.demo.vo;
+package com.example.demo.vo.user;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;

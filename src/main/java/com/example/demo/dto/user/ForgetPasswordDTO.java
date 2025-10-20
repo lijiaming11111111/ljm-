@@ -8,8 +8,11 @@ public class ForgetPasswordDTO {
     @Schema(description = "邮箱")
     private String mail;
 
-    @Schema(description = "旧密码")
-    private String oldPassword;
+    @Schema(description = "电话号码")
+    private String mobile;
+
+    @Schema(description = "验证码")
+    private String code;
 
     @Schema(description = "新密码")
     private String newPassword;

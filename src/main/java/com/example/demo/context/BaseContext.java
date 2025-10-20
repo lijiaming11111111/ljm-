@@ -7,6 +7,7 @@ public class BaseContext {
     //当前用户ID
     public static ThreadLocal<Long> currentUserId = new ThreadLocal<>();
 
+    public static ThreadLocal<List<Long>> currentUserRoleIds = new ThreadLocal<>();
 
 
     public static Long getCurrentUserId() {
@@ -17,9 +18,17 @@ public class BaseContext {
         currentUserId.set(id);
     }
 
+    public static List<Long> getCurrentUserRoleIds() {
+        return currentUserRoleIds.get();
+    }
+
+    public static void setCurrentUserRoleIds(List<Long> roleIds) {
+        currentUserRoleIds.set(roleIds);
+    }
 
     public static void clear() {
         currentUserId.remove();
+        currentUserRoleIds.remove();
     }
 
 

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.example.demo.enumerate.SexEnum;
 import com.example.demo.enumerate.StatusEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.util.Date;
@@ -12,8 +13,9 @@ import java.util.Date;
 @Data
 public class UpdateUserDTO {
     @TableId(value = "id", type = IdType.AUTO)
-    @Schema(description = "邮件id")
-    private Long id;
+    @Schema(description = "用户id")
+    @NotBlank(message = "用户id不能为空")
+    private String id;
 
     @Schema(description = "用户名")
     private String userName;

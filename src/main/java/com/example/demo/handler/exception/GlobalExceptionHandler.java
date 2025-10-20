@@ -52,5 +52,14 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(result, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    @ExceptionHandler(BaseException.class)
+    @ResponseBody
+    public ResponseEntity<Result<String>> handleBaseException(BaseException e) {
+        // 用 Result 封装异常信息，code 设为 0（或你定义的失败码），msg 设为异常消息
+        Result<String> result = Result.error(e.getMessage());
+        // 根据业务需求设置 HTTP 状态码（如 BAD_REQUEST、INTERNAL_SERVER_ERROR 等）
+        return new ResponseEntity<>(result, HttpStatus.BAD_REQUEST);
+    }
+
 
 }

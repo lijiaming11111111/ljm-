@@ -1,41 +1,56 @@
 package com.example.demo.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.baomidou.mybatisplus.core.toolkit.StringUtils;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.example.demo.bo.UserLoginData;
 import com.example.demo.bo.UserLoginVerifyData;
-import com.example.demo.context.BaseContext;
 import com.example.demo.dto.user.*;
+import com.example.demo.entiy.File;
 import com.example.demo.entiy.User;
 import com.example.demo.enumerate.StatusEnum;
 import com.example.demo.exception.BaseException;
+import com.example.demo.mapper.FileMapper;
 import com.example.demo.mapper.UserMapper;
+import com.example.demo.redis.RedisPrefix;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;
 import com.example.demo.service.UserService;
+import com.example.demo.util.CodeUtil;
+import com.example.demo.util.FileUtil;
 import com.example.demo.util.JwtUtil;
 import com.example.demo.util.SaltUtil;
-import com.example.demo.vo.UserLoginVO;
+import com.example.demo.vo.file.FileDataVO;
+import com.example.demo.vo.user.PageUserVO;
+import com.example.demo.vo.user.UserLoginVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
 public class UserImpl extends ServiceImpl<UserMapper, User>implements UserService {
     private final UserMapper userMapper;
+
+    private final RedisTemplate<String, String> redisTemplate;
+
+    private final ObjectMapper objectMapper;
 
     @Value("${jwt.secretKey}")
     private String jwtSecretKey;
@@ -49,17 +64,12 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
     @Value("${spring.mail.username}")
     private String sendMailer;
 
-    //存储邮箱验证码
-    private String verificationCode;
     // 保存收件人邮箱
     private String mail;
-    // 记录验证码发送时间（用于计算有效期）
-    private Date startTime;
-    // 保存验证码过期时间
-    private Date endTime;
-    //存储验证码是否验证成功
-    private Boolean ll=false;
 
+    private final FileUtil fileUtil;
+
+    private final FileMapper fileMapper;
     /**
      * 新增用户
      *
@@ -67,8 +77,8 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
      * @return
      */
     @Override
-    public String addUser(AddUserDTO addUserDTO) {
-        System.out.println(BaseContext.getCurrentUserId());
+    public String addUser(AddUserDTO addUserDTO, MultipartFile face) throws IOException {
+
         //创建用户
         User user = new User();
         BeanUtils.copyProperties(addUserDTO,user);
@@ -81,6 +91,16 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         if (count!=0){
             throw new BaseException("邮箱已存在");
         }
+
+        QueryWrapper<User>mobileQueryWrapper=new QueryWrapper<>();
+        mobileQueryWrapper.eq("mobile",addUserDTO.getMobile());
+        Long mobileCount=userMapper.selectCount(queryWrapper);
+        if (mobileCount!=0){
+            throw new BaseException("手机号已存在");
+        }
+
+        String objectName=fileUtil.uploadFile(face);
+        user.setFace(fileMapper.selectFileId(objectName));
 
         //生成盐值和加密密码
         String salt= SaltUtil.generateSalt(16);
@@ -102,7 +122,6 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
     @Override
     public Result deleteUser(List<Long> ids) {
         List<User>userList=userMapper.selectBatchIds(ids);
-
         //判断删除的邮件历史记录id是否存在
         if (ids.size()== userList.size()){
             userMapper.deleteBatchIds(ids);
@@ -120,10 +139,8 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
      */
     @Override
     public UserLoginVO login(UserLoginDTO dto) throws JsonProcessingException {
-        QueryWrapper<User>queryWrapper=new QueryWrapper<>();
-        queryWrapper.eq("mail",dto.getMail());
-        User user=userMapper.selectOne(queryWrapper);
-        if (user==null){
+        UserLoginVerifyData user = userMapper.getUserLoginDataByAccount(dto.getMail());
+        if (user == null){
             throw new BaseException("用户不存在");
         }
         // 创建用户登录验证数据对象，用于处理登录验证相关信息
@@ -147,6 +164,12 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
                 jwtSecretKey,
                 jwtExpiration * 3600 * 1000,
                 claims);
+        //返回用户信息
+        UserLoginData userLoginData = new UserLoginData();
+        userLoginData.setId(user.getId());
+        userLoginData.setToken(token);
+        userLoginData.setRoleIds(user.getRoleIds());
+        redisTemplate.opsForValue().set(RedisPrefix.USER_LOGIN_DATA.getPrefix() + user.getId(), objectMapper.writeValueAsString(userLoginData), jwtExpiration, TimeUnit.HOURS);
         return UserLoginVO
                 .builder()
                 .id(data.getId())
@@ -157,19 +180,8 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
     @Override
     public Result sendVerificationCode(SendVerificationCodeDTO dto) {
         SimpleMailMessage message = new SimpleMailMessage();
-        // 创建随机数生成器，用于生成验证码
-        Random random = new Random();
-        // 字符串构建器，用于拼接生成的验证码数字
-        StringBuilder code = new StringBuilder();
-        // 循环6次，生成6位数字的验证码
-        for (int i = 0; i < 6; i++) {
-            // 生成0-9之间的随机整数
-            int r = random.nextInt(10);
-            // 将随机数拼接到验证码字符串中
-            code.append(r);
-        }
-        // 将生成的验证码转换为字符串并保存
-        verificationCode= String.valueOf(code);
+        // 生成随机验证码
+        String code = CodeUtil.generateCode(6);
         // 构建邮件内容，包含验证码信息和提示
         String text = "您的验证码为：" + code + ",请勿泄露给他人。";
         // 设置邮件发送者（发件人邮箱
@@ -184,20 +196,9 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         message.setSubject("登录验证码");
         // 保存收件人邮箱
         mail=dto.getMail();
-
-        // 记录验证码发送时间（用于计算有效期）
-        startTime=message.getSentDate();
-        // 获取日历实例，用于计算验证码过期时间
-        Calendar cal = Calendar.getInstance();
-        // 设置日历时间为验证码发送时间
-        cal.setTime(startTime);
-        // 在发送时间基础上增加5分钟，作为验证码有效期
-        cal.add(Calendar.MINUTE,5);
-        // 保存验证码过期时间
-        endTime=cal.getTime();
-        //判断是否发送失败
         try {
             javaMailSender.send(message);
+            redisTemplate.opsForValue().set("code:" + mail, String.valueOf(code), Duration.ofMinutes(5));
             return Result.success("发送成功",null);
 
         }catch (Exception e){
@@ -205,70 +206,29 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         }
 
     }
-
-    /**
-     * 验证码验证
-     *
-     * @param  dto
-     * @return
-     */
-    @Override
-    public Result verificationCodeValidation(VerificationCodeValidationDTO dto) {
-        if (Objects.equals(dto.getMail(), mail) &&dto.getVerificationCode().equals(verificationCode)){
-            if (new Date().after(endTime)){
-                mail=null;
-                verificationCode=null;
-                //邮箱验证码发送时间
-                startTime=null;
-                //邮箱验证码有效期结束时间
-                endTime=null;
-                return Result.error("验证码失效");
-            }else {
-                ll=true;
-                return Result.success("验证成功",null);
-
-            }
-        }else {
-            ll=false;
-            return Result.error("无效验证码");
-        }
-    }
-
     /**
      * 忘记密码
      *
-     * @param  dto
-     * @return
+     * @param dto
      */
     @Override
-    public Result forgetPassword(ForgetPasswordDTO dto) {
-        // 验证标识判断
-        if (ll==true){
+    public void forgetPassword(ForgetPasswordDTO dto) {
+        String key = dto.getMail() != null ? dto.getMail() : dto.getMobile();
+        if (CodeUtil.checkCode(key, dto.getCode())) {
             QueryWrapper<User>queryWrapper=new QueryWrapper<>();
             queryWrapper.eq("mail",dto.getMail());
             User oldUser=userMapper.selectOne(queryWrapper);
             //判断用户是否存在，不存在则返回错误信息
             if (oldUser==null){
-                return Result.error("用户不存在");
+                throw new BaseException("用户不存在");
             }
-            //构建旧密码校验值：输入的旧密码明文 + 数据库中存储的盐值
-            String oldPassword=dto.getOldPassword()+oldUser.getSalt();
-            oldPassword=DigestUtils.md5DigestAsHex(oldPassword.getBytes());
-            //校验旧密码是否正确
-            if (oldPassword.equals(oldUser.getPassword())){
-                String salt = SaltUtil.generateSalt(16);
-                oldUser.setSalt(salt);
-                String newPassword = dto.getNewPassword() + salt;
-                oldUser.setPassword(DigestUtils.md5DigestAsHex(newPassword.getBytes()));
-                User newUser = new User();
-                BeanUtils.copyProperties(oldUser,newUser);
-                userMapper.updateById(newUser);
-                return Result.success("修改成功 ");
-            }else {
-                return Result.error("密码错误");
-            }
-        }else {
-            return Result.error("没有通过验证码验证，不能修改密码");
+            String salt = SaltUtil.generateSalt(16);
+            oldUser.setSalt(salt);
+            String newPassword = dto.getNewPassword() + salt;
+            oldUser.setPassword(DigestUtils.md5DigestAsHex(newPassword.getBytes()));
+            User newUser = new User();
+            BeanUtils.copyProperties(oldUser,newUser);
+            userMapper.updateById(newUser);
         }
     }
 
@@ -306,45 +266,36 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
     /**
      * 分页查询邮件历史记录
      *
-     * @param  dto
+     * @param dto
      * @return
      */
     @Override
-    public PageResult<User> pageUser(PageUserDTO dto) {
-        // 1. 创建分页对象，设置当前页码和每页显示条数
-        Page<User>page=new Page<>(dto.getPage(),dto.getPageSize());
-        // 2. 创建查询条件构造器，用于构建SQL查询条件
-        LambdaQueryWrapper<User>queryWrapper=new LambdaQueryWrapper<>();
-        // 3. 构建模糊查询条件：用户名不为空时，添加用户名模糊查询
-        queryWrapper.like(StringUtils.isNotBlank(dto.getUserName()),
-                User::getUserName,dto.getUserName());
-        // 4. 构建模糊查询条件：邮箱不为空时，添加邮箱模糊查询
-        queryWrapper.like(StringUtils.isNotBlank(dto.getMail()),
-                User::getMail,dto.getMail());
-        // 5. 构建模糊查询条件：手机号不为空时，添加手机号模糊查询
-        queryWrapper.like(StringUtils.isNotBlank(dto.getMobile()),
-                User::getMobile,dto.getMobile());
-        // 6. 构建模糊查询条件：地址不为空时，添加地址模糊查询
-        queryWrapper.like(StringUtils.isNotBlank(dto.getAddress()),
-                User::getAddress,dto.getAddress());
-        // 7. 构建精确查询条件：性别不为空时，添加性别精确匹配
-        queryWrapper.eq(dto.getSexEnum()!=null, User::getSexEnum,dto.getSexEnum());
-        // 8. 构建精确查询条件：状态不为空时，添加状态精确匹配
-        queryWrapper.eq(dto.getStatusEnum()!=null, User::getStatusEnum,dto.getStatusEnum());
-        // 9. 调用mapper层方法执行分页查询，获取查询结果
-        Page<User>result=userMapper.selectPage(page,queryWrapper);
-
-        return new PageResult<>(result.getTotal(),result.getRecords());
+    public PageResult<PageUserVO> pageUser(PageUserDTO dto) {
+        PageHelper.startPage(dto.getPage(), dto.getPageSize());
+        Page<PageUserVO> page=userMapper.pageUser(dto);
+        List<PageUserVO>vos=page.getResult();
+                for (PageUserVO vo:vos){
+            FileDataVO fileDataVO=new FileDataVO();
+            File file=userMapper.selectFileName(vo.getFace());
+            fileDataVO.setId(file.getId());
+            fileDataVO.setName(file.getFileName());
+            String url=fileUtil.generateDownloadUrl(file.getObjectName());
+            fileDataVO.setUrl(url);
+            vo.setFaceUrl(fileDataVO);
+        }
+                page.setTotal(vos.size());
+        return new PageResult<>(page.getTotal(),page.getResult());
     }
 
     /**
      * 修改用户
      *
-     * @param  dto
+     * @param dto
+     * @param face
      * @return
      */
     @Override
-    public Result updateUser(UpdateUserDTO dto) {
+    public Result updateUser(UpdateUserDTO dto, MultipartFile face) throws IOException {
         QueryWrapper<User>queryWrapper=new QueryWrapper<>();
         queryWrapper.eq("id",dto.getId());
         User oldUser=userMapper.selectOne(queryWrapper);
@@ -356,24 +307,13 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         BeanUtils.copyProperties(dto,user);
         QueryWrapper<User>oldQueryWrapper=new QueryWrapper<>();
         oldQueryWrapper.eq("id",dto.getId());
+        if (face!=null){
+            File file=userMapper.selectFileName(user.getFace());
+            fileUtil.deleteFile(file.getObjectName());
+            String objectName=fileUtil.uploadFile(face);
+            user.setFace(fileMapper.selectFileId(objectName));
+        }
         userMapper.update(user,oldQueryWrapper);
         return Result.success("修改成功",null);
-    }
-
-    /**
-     * 每十秒执行一次，验证邮箱验证码是否过期
-     *
-     *
-     *
-     */
-    @Scheduled(cron = "*/10 * * * * *")
-    public void timekeeping(){
-        if (new Date().after(endTime)){
-            mail=null;
-            verificationCode=null;
-            startTime=null;
-            endTime=null;
-            ll=false;
-        }
     }
 }

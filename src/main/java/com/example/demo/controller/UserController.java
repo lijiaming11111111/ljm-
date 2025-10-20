@@ -1,11 +1,13 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.user.*;
-import com.example.demo.entiy.User;
+import com.example.demo.exception.BaseException;
 import com.example.demo.result.PageResult;
 import com.example.demo.result.Result;
 import com.example.demo.service.UserService;
-import com.example.demo.vo.UserLoginVO;
+import com.example.demo.util.CodeUtil;
+import com.example.demo.vo.user.PageUserVO;
+import com.example.demo.vo.user.UserLoginVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/user")
@@ -34,8 +39,9 @@ public class UserController {
      */
     @PostMapping("/addUser")
     @Operation(summary = "新增用户")
-    public Result<String>addUser(@Valid @RequestBody AddUserDTO dto){
-        return Result.success("新增成功",userService.addUser(dto));
+    public Result<String>addUser(@Valid @RequestPart("dto") AddUserDTO dto,
+                                 @RequestPart(value = "face", required = false) MultipartFile face) throws IOException {
+        return Result.success("新增成功",userService.addUser(dto,face));
     }
 
     /**
@@ -82,8 +88,11 @@ public class UserController {
      */
     @PostMapping("/verificationCodeValidation")
     @Operation(summary = "验证码验证")
-    public Result verificationCodeValidation(@RequestBody VerificationCodeValidationDTO dto){
-        return userService.verificationCodeValidation(dto);
+    public Result verificationCodeValidation(@RequestBody VerificationCodeValidationDTO dto) {
+        if (CodeUtil.checkCode(dto.getMail(), dto.getVerificationCode())) {
+            return Result.success("验证成功", true);
+        }
+        throw new BaseException("验证码错误");
     }
 
     /**
@@ -95,7 +104,8 @@ public class UserController {
     @PostMapping("/forgetPassword")
     @Operation(summary = "忘记密码")
     public Result forgetPassword(@RequestBody ForgetPasswordDTO dto){
-        return userService.forgetPassword(dto);
+        userService.forgetPassword(dto);
+        return Result.success("修改成功",null);
     }
 
     /**
@@ -118,8 +128,8 @@ public class UserController {
      */
     @PostMapping("/pageUser")
     @Operation(summary = "分页查询用户")
-    public Result<PageResult<User>>pageUser(@RequestBody PageUserDTO dto){
-        PageResult<User>pageResult=userService.pageUser(dto);
+    public Result<PageResult<PageUserVO>>pageUser(@RequestBody PageUserDTO dto){
+        PageResult<PageUserVO>pageResult=userService.pageUser(dto);
         return Result.success("查询成功",pageResult);
     }
 
@@ -131,7 +141,13 @@ public class UserController {
      */
     @PostMapping("/updateUser")
     @Operation(summary = "修改用户")
-    public Result updateUser(@RequestBody UpdateUserDTO updateUserDTO){
-        return userService.updateUser(updateUserDTO);
+    public Result updateUser(@Valid @RequestPart("dto")  UpdateUserDTO updateUserDTO,
+                             @RequestPart(value = "face", required = false) MultipartFile face) throws IOException {
+
+        return userService.updateUser(updateUserDTO,face );
     }
+
 }
+
+
+
