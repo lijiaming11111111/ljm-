@@ -26,7 +26,7 @@ public class FileController {
     /**
      * 文件上传接口
      */
-    @PostMapping("upload")
+    @PostMapping("/upload")
     @Operation(summary = "上传文件")
     public Result<String> upload(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
@@ -58,6 +58,9 @@ public class FileController {
         return Result.success(fileService.generateDownloadUrl(fileName),null);
     }
 
+    /**
+     * 删除文件接口
+     */
     @GetMapping("/deleteFile")
     @Operation(summary = "删除文件")
     public Result<String> deleteFile(@RequestParam("file") String file) throws IOException {

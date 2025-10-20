@@ -8,7 +8,9 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface FileMapper extends BaseMapper<File> {
-
+    /**
+     * 根据文件对象名称（objectName）查询文件记录的 ID
+     */
     @Select("select id from file where object_name=#{objectName} ")
     Long selectFileId(String objectName);
 }
