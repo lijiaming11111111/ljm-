@@ -4,6 +4,7 @@ import com.example.demo.enumerate.SexEnum;
 import com.example.demo.enumerate.StatusEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -23,6 +24,10 @@ public class AddUserDTO {
     @Schema(description = "邮箱")
     @NotBlank(message = "邮箱不能为空")
     private String mail;
+
+    @Schema(description = "头像文件(id)")
+    @NotNull(message = "头像文件(id)不能为空")
+    private Long face;
 
     @Schema(description = "手机号")
     @NotBlank(message = "联系电话为空")

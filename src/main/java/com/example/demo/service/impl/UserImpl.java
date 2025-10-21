@@ -22,7 +22,6 @@ import com.example.demo.util.FileUtil;
 import com.example.demo.util.JwtUtil;
 import com.example.demo.util.SaltUtil;
 import com.example.demo.vo.file.FileDataVO;
-import com.example.demo.vo.file.FileUrlVO;
 import com.example.demo.vo.user.PageUserVO;
 import com.example.demo.vo.user.UserLoginVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -79,7 +78,7 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
      * @return
      */
     @Override
-    public String addUser(AddUserDTO addUserDTO,MultipartFile face) throws IOException {
+    public String addUser(AddUserDTO addUserDTO) throws IOException {
 
         //创建用户
         User user = new User();
@@ -100,12 +99,12 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         if (mobileCount!=0){
             throw new BaseException("手机号已存在");
         }
-        //调用获取上传文件预签名接口，获取上传预签名地址，和文件唯一ID
-        FileUrlVO vo=fileUtil.url(face);
-        //通过预签名上传文件
-        fileUtil.uploadFileUrl(String.valueOf(vo.getUrl()),face);
-        //用户的头像字段使用第一步获取的文件ID
-        user.setFace(vo.getId());
+        List<Long>faceIdList=fileMapper.selectAllFileId();
+        if (faceIdList.contains(addUserDTO.getFace())){
+            user.setFace(addUserDTO.getFace());
+        }else {
+            throw new BaseException("头像不存在");
+        }
         //生成盐值和加密密码
         String salt= SaltUtil.generateSalt(16);
         user.setSalt(salt);
@@ -264,7 +263,7 @@ public class UserImpl extends ServiceImpl<UserMapper, User>implements UserServic
         User newUser = new User();
         BeanUtils.copyProperties(oldUser,newUser);
         userMapper.updateById(newUser);
-        return Result.success("修改成功 ");
+        return Result.success("修改成功 ",null);
     }
 
     /**

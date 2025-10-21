@@ -39,9 +39,8 @@ public class UserController {
      */
     @PostMapping("/addUser")
     @Operation(summary = "新增用户")
-    public Result<String>addUser(@Valid @RequestPart("dto") AddUserDTO dto,
-                                 @RequestPart(value = "face", required = false) MultipartFile face) throws IOException {
-        return Result.success("新增成功",userService.addUser(dto,face));
+    public Result<String>addUser(@Valid @RequestBody AddUserDTO dto) throws IOException {
+        return Result.success("新增成功",userService.addUser(dto));
     }
 
     /**

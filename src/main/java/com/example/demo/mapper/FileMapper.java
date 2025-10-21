@@ -6,6 +6,8 @@ import com.example.demo.entiy.File;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 @Mapper
 public interface FileMapper extends BaseMapper<File> {
     /**
@@ -13,4 +15,7 @@ public interface FileMapper extends BaseMapper<File> {
      */
     @Select("select id from file where object_name=#{objectName} ")
     Long selectFileId(String objectName);
+
+    @Select("select id from file")
+    List<Long>selectAllFileId();
 }
