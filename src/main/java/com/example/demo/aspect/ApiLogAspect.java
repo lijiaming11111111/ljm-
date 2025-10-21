@@ -63,14 +63,17 @@ public class ApiLogAspect {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes != null) {
             HttpServletRequest request = attributes.getRequest();
-            log.error("=========================== 接口请求异常 ===========================");
-            log.error("请求URL: {}", request.getRequestURL()); // 补充 URL
-            log.error("请求方法: {}.{}",
-                    joinPoint.getSignature().getDeclaringTypeName(),
-                    joinPoint.getSignature().getName()
-            );
-            log.error("请求参数: {}", Arrays.toString(joinPoint.getArgs())); // 补充参数
-            log.error("异常信息: ", e); // 注意：这里不要用 {}，直接传 e，让日志框架打印堆栈
+
+            StringBuilder errorMsg = new StringBuilder();
+            errorMsg.append("========================== 接口请求异常 ==========================\n")
+                    .append("请求URL：").append(request.getRequestURL()).append("\n")
+                    .append("请求方法：").append(joinPoint.getSignature().getDeclaringTypeName())
+                    .append(".").append(joinPoint.getSignature().getName()).append("\n")
+                    .append("请求参数：").append(Arrays.toString(joinPoint.getArgs())).append("\n")
+                    .append("异常信息：").append(e).append("\n") // 日志框架会处理异常堆栈
+                    .append("===================================================================");
+
+            log.error(errorMsg.toString());
         }
     }
 }
